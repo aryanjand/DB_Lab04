@@ -1,9 +1,9 @@
 {
-  "name": "sample-code",
+  "name": "DB_Lab04",
   "version": "1.0.0",
-  "description": "",
+  "description": "Lab_04",
   "main": "index.js",
-  "author": "",
+  "author": "Aryan Jand",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.0",
