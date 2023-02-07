@@ -1,7 +1,4 @@
 {
-  "engines": {
-    "node": "19.6.0"
-  },
   "dependencies": {
     "bcrypt": "^5.1.0",
     "connect": "^3.7.0",
