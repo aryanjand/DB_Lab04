@@ -1,10 +1,10 @@
-
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
 const saltRounds = 12;
+var rand_int = Math.floor(Math.random() * 3) + 1
 
 const port = process.env.PORT || 3000;
 
@@ -47,10 +47,8 @@ app.get('/', (req, res) => {
         <button>Log-In</button>
     </form>
     `
-    req.session.authenticated = false;
     res.send(html)
 });
-
 
 app.get('/signup', (req, res) => {
     let missing = req.query.missing;
@@ -96,7 +94,6 @@ app.get('/login', (req, res) => {
 app.post('/validate_user', (req, res) => {
     let user_email = req.body.user_email
     let user_password = req.body.user_password
-
     if (!user_email) {
         res.redirect('/login?missing=1')
     }
@@ -109,8 +106,9 @@ app.post('/validate_user', (req, res) => {
             if (bcrypt.compareSync(user_password, users[i].password)) {
                 req.session.authenticated = true;
                 req.session.user_email = user_email;
+                req.session.username = users[i].name;
                 req.session.cookie.maxAge = expireTime;
-                // console.log("debug")
+                console.log("debug")
                 res.redirect("/members")
             }
         }
@@ -141,15 +139,20 @@ app.post("/create_user", (req, res) => {
             password: hashedPassword
         }
     )
-    console.log(users)
-    res.redirect('/')
+    console.log("going to members")
+    // have fix this
+    res.redirect("/login")
+
 });
 
 app.get("/members", (req, res) => {
+    console.log("In members");
     if (req.session.authenticated) {
+        console.log(rand_int);
         html_members = `
-        <form>
-        <h2>Welcome ${req.se}</h2>
+        <h2>Welcome ${req.session.username}</h2>
+        <img src='${rand_int}.jpg'>
+        <form action='/user_logout' method='post'>
         <button>Log Out</button>
         </form>
         `;
@@ -159,6 +162,10 @@ app.get("/members", (req, res) => {
     }
 })
 
+app.post("/user_logout", (req, res) => {
+    req.session.destroy();
+    res.redirect("/")
+})
 
 app.use(express.static(__dirname + "/public"));
 
