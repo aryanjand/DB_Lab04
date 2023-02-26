@@ -1,0 +1,14 @@
+<% include("templates/header") %>
+Login User
+<form action='/validate_user' method='post'>
+    <input name="user_email" type="text" placeholder='Email'>
+    <input name="user_password" type="password" placeholder="Password">
+    <button>Submit</button>
+</form>
+
+<% if (missing == 1) { %>
+<br /> Email is Required
+<% } if (missing == 2) { %>
+<br /> Password is Required
+<% } %>
+<% include("templates/footer") %>

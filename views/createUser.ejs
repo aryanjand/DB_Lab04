@@ -1,0 +1,18 @@
+<%- include("templates/header") %>
+Create User
+<form action="/create_user" method="post">
+    <input name="name" type="text" placeholder="Name"><br />
+    <input name="email" type="text" placeholder="Email"><br />
+    <input name="password" type="Password" placeholder="Password"><br />
+    <button>Submit</button>
+</form>
+<% if (missing == 1) { %>
+<br> Name is Required
+<% } %>
+<% if (missing == 2) { %>
+<br> Email is Required
+<% } %>
+<% if (missing == 3) { %>
+<br> Passcode is Required
+<% } %>
+<%- include("templates/footer") %>

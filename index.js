@@ -1,19 +1,21 @@
+
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
 const saltRounds = 12;
-var rand_int = Math.floor(Math.random() * 3) + 1
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3005;
 
 const app = express();
 
-const mongo_user = process.env.MONGODB_USER;;
-const mongo_password = process.env.MONGODB_PASSWORD;;
+const mongo_user = process.env.MONGODB_USER;
+const mongo_password = process.env.MONGODB_PASSWORD;
 const mongo_session_id = process.env.MONGODB_SESSION_SECR;
 const node_session_id = process.env.NODE_SESSION_SECRET;
+
+app.set('view engine', 'ejs');
 
 const expireTime = 1 * 60 * 60 * 1000
 
@@ -32,75 +34,13 @@ let mongoStore = MongoStore.create({
 
 app.use(session({
     secret: node_session_id,
-    store: mongoStore,
+    store: mongoStore, // default is memory store
     saveUninitialized: false,
     resave: true
 }
 ));
 
-app.get('/', (req, res) => {
-    let html = `
-    <form action="/signup" method="get">
-        <button>Sign-Up</button>
-    </form>
-    <form action="/login" method="get">
-        <button>Log-In</button>
-    </form>
-    `
-    res.send(html)
-});
-
-app.get('/signup', (req, res) => {
-    let missing = req.query.missing;
-    html_signUp =
-        `Create User
-    <form action="/create_user" method="post">
-        <input name="name" type="text" placeholder="Name"><br/>
-        <input name="email" type="text" placeholder="Email"><br/>
-        <input name="password" type="Password" placeholder="Password"><br/>
-        <button>Submit</button >
-    </form >`;
-
-    if (missing == 1) {
-        html_signUp += "<br/> Name is Required";
-    } else if (missing == 2) {
-        html_signUp += "<br/> Email is Required";
-    } else if (missing == 3) {
-        html_signUp += "<br/> Passcode is Required";
-    }
-    res.send(html_signUp)
-});
-
-
-app.get('/login', (req, res) => {
-    let missing = req.query.missing
-    html_login = `
-    Login User
-    <form action='/validate_user' method='post'>
-        <input name="user_email" type="text" placeholder='Email'>
-        <input name="user_password" type="password" placeholder="Password">
-        <button>Submit</button>
-    </form>
-    `
-    if (missing == 1) {
-        html_login += '<br/>Email is Required'
-    } else if (missing == 2) {
-        html_login += '<br/>Password is Required'
-    }
-
-    res.send(html_login)
-});
-
-app.post('/validate_user', (req, res) => {
-    let user_email = req.body.user_email
-    let user_password = req.body.user_password
-    if (!user_email) {
-        res.redirect('/login?missing=1')
-    }
-    else if (!user_password) {
-        res.redirect('/login?missing=2')
-    }
-
+function authenticateUser(req, user_email, user_password) {
     for (i = 0; i < users.length; i++) {
         if (users[i].email == user_email) {
             if (bcrypt.compareSync(user_password, users[i].password)) {
@@ -108,14 +48,21 @@ app.post('/validate_user', (req, res) => {
                 req.session.user_email = user_email;
                 req.session.username = users[i].name;
                 req.session.cookie.maxAge = expireTime;
-                console.log("debug")
-                res.redirect("/members")
+                return true
             }
         }
     }
-    //user and password combination not found
-    // res.redirect("/")
-})
+    return false
+}
+
+app.get('/', (req, res) => {
+    res.render("index")
+});
+
+app.get('/signup', (req, res) => {
+    let missing = req.query.missing;
+    res.render("createUser", { missing: missing });
+});
 
 app.post("/create_user", (req, res) => {
     let name = req.body.name
@@ -124,13 +71,17 @@ app.post("/create_user", (req, res) => {
 
     if (!name) {
         res.redirect('/signup?missing=1')
+        return;
     }
-    else if (!email) {
+    if (!email) {
         res.redirect("/signup?missing=2")
+        return;
     }
-    else if (!password) {
+    if (!password) {
         res.redirect("/signup?missing=3")
+        return;
     }
+
     let hashedPassword = bcrypt.hashSync(password, saltRounds)
     users.push(
         {
@@ -139,24 +90,46 @@ app.post("/create_user", (req, res) => {
             password: hashedPassword
         }
     )
-    console.log("going to members")
-    // have fix this
-    res.redirect("/login")
+    if (authenticateUser(req, email, password)) {
+        res.redirect("/members")
+        return;
+    }
+    res.redirect("/signup")
 
 });
 
+
+
+app.get('/login', (req, res) => {
+    let missing = req.query.missing
+    res.render("login", { missing: missing });
+});
+
+app.post('/validate_user', (req, res) => {
+    let user_email = req.body.user_email
+    let user_password = req.body.user_password
+
+    if (!user_email) {
+        res.redirect('/login?missing=1')
+    }
+    if (!user_password) {
+        res.redirect('/login?missing=2')
+    }
+
+
+    if (authenticateUser(req, user_email, user_password)) {
+        res.redirect("/members")
+        return;
+    }
+    //user and password combination not found
+    res.redirect("/login")
+})
+
+
 app.get("/members", (req, res) => {
-    console.log("In members");
     if (req.session.authenticated) {
-        console.log(rand_int);
-        html_members = `
-        <h2>Welcome ${req.session.username}</h2>
-        <img src='${rand_int}.jpg'>
-        <form action='/user_logout' method='post'>
-        <button>Log Out</button>
-        </form>
-        `;
-        res.send(html_members);
+        let name = req.session.username
+        res.render("members");
     } else {
         res.redirect('/login');
     }
