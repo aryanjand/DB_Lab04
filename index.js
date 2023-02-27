@@ -1,10 +1,17 @@
+require('./utils');
 
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
+const database = require('./databaseConnection');
+const db_user = include("database/users")
 const saltRounds = 12;
+
+// const db_utils = include('database/db_utils');
+// const success = db_utils.printMySQLVersion();
+
 
 const port = process.env.PORT || 3005;
 
@@ -19,8 +26,7 @@ app.set('view engine', 'ejs');
 
 const expireTime = 1 * 60 * 60 * 1000
 
-// In memory databse
-let users = [];
+
 // users.push("123", bcrypt.hashSync("123", saltRounds));
 app.use(express.urlencoded({ extended: false }));
 
@@ -40,23 +46,87 @@ app.use(session({
 }
 ));
 
-function authenticateUser(req, user_email, user_password) {
-    for (i = 0; i < users.length; i++) {
-        if (users[i].email == user_email) {
-            if (bcrypt.compareSync(user_password, users[i].password)) {
-                req.session.authenticated = true;
-                req.session.user_email = user_email;
-                req.session.username = users[i].name;
-                req.session.cookie.maxAge = expireTime;
-                return true
+async function authenticateUser(req, user_email, user_password) {
+    // is type object
+    let result = await db_user.getUsers({ email: user_email, password: user_password });
+
+    if (result) {
+        if (result.lenght == 1) {
+            if (await bcrypt.compareSynce(user_password, result[0].password)) {
+                return true;
+            } else {
+                console.log("Password not matched")
             }
+        } else {
+            console.log("Invalid number of users matched: " + result.lenght + " (Expected 1).")
+            return false;
         }
     }
-    return false
+    return false;
 }
+
+function setUpDatabse() {
+    const create_tables = include('database/create_tables')
+
+    let success = create_tables.createTables()
+    if (success) {
+        console.log("Tables Created Good to Go!!")
+    } else {
+        console.log("Tables Not Created Bad to GO!!")
+    }
+}
+
+function getUserType() {
+    // return user type
+}
+
+function isVaildSession(req) {
+    if (req.session.authenticated) {
+        return true;
+    }
+    return false;
+}
+
+function sessionValidation(req, res, next) {
+    if (!isVaildSession(req)) {
+        req.session.destroy();
+        res.redirect("/login");
+        return;
+    }
+    else {
+        next();
+    }
+}
+
+function isAdmin(req) {
+    if (req.session.user_type == 'admin') {
+        return true;
+    }
+    return false;
+}
+
+function adminAuthorization(req, res, next) {
+    if (!isAdmin(req)) {
+        res.status(403);
+        res.render("errorMessage", { error: "Not Authorized" });
+        return;
+    }
+    else {
+        next();
+    }
+}
+
+app.use("/members", sessionValidation)
+app.use("/admin", adminAuthorization)
+
 
 app.get('/', (req, res) => {
     res.render("index")
+    setUpDatabse()
+});
+
+app.get('/admin', (req, res) => {
+    res.render("admin")
 });
 
 app.get('/signup', (req, res) => {
@@ -64,7 +134,7 @@ app.get('/signup', (req, res) => {
     res.render("createUser", { missing: missing });
 });
 
-app.post("/create_user", (req, res) => {
+app.post("/create_user", async (req, res) => {
     let name = req.body.name
     let email = req.body.email
     let password = req.body.password
@@ -83,19 +153,20 @@ app.post("/create_user", (req, res) => {
     }
 
     let hashedPassword = bcrypt.hashSync(password, saltRounds)
-    users.push(
-        {
-            name: name,
-            email: email,
-            password: hashedPassword
+    let success = await db_user.createUser({ name: name, email: email, password: hashedPassword })
+
+
+    if (success) {
+        if (authenticateUser(req, email, hashedPassword)) {
+            req.session.authenticated = true;
+            req.session.name = name;
+            req.session.user_type =
+                req.session.cookie.maxAge = expireTime;
+            res.redirect("/members")
+            return;
         }
-    )
-    if (authenticateUser(req, email, password)) {
-        res.redirect("/members")
-        return;
     }
     res.redirect("/signup")
-
 });
 
 
@@ -116,8 +187,9 @@ app.post('/validate_user', (req, res) => {
         res.redirect('/login?missing=2')
     }
 
-
     if (authenticateUser(req, user_email, user_password)) {
+        req.session.authenticated = true;
+        req.session.cookie.maxAge = expireTime;
         res.redirect("/members")
         return;
     }
@@ -128,7 +200,6 @@ app.post('/validate_user', (req, res) => {
 
 app.get("/members", (req, res) => {
     if (req.session.authenticated) {
-        let name = req.session.username
         res.render("members");
     } else {
         res.redirect('/login');
@@ -139,6 +210,26 @@ app.post("/user_logout", (req, res) => {
     req.session.destroy();
     res.redirect("/")
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 app.use(express.static(__dirname + "/public"));
 
