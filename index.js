@@ -14,7 +14,7 @@ const saltRounds = 12;
 // const success = db_utils.printMySQLVersion();
 
 
-const port = process.env.PORT || 3005;
+const port = process.env.PORT || 3000;
 
 const app = express();
 
