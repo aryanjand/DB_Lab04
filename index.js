@@ -5,8 +5,9 @@ const express = require('express');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
-const database = require('./databaseConnection');
+const database = include('databaseConnection');
 const db_user = include("database/users")
+const db_todo = include("database/todos")
 const saltRounds = 12;
 
 // const db_utils = include('database/db_utils');
@@ -46,14 +47,17 @@ app.use(session({
 }
 ));
 
-async function authenticateUser(req, user_email, user_password) {
+async function authenticateUser(user_email, user_password) {
     // is type object
-    let result = await db_user.getUsers({ email: user_email, password: user_password });
-
+    let result = await db_user.getUsers({ email: user_email });
+    console.log("outside sql")
+    console.log(result)
     if (result) {
-        if (result.lenght == 1) {
-            if (await bcrypt.compareSynce(user_password, result[0].password)) {
-                return true;
+
+        if (result.length == 1) {
+            if (bcrypt.compareSync(user_password, result[0].password)) {
+                console.log("Returing result obj")
+                return { bool: true, user: result[0] };
             } else {
                 console.log("Password not matched")
             }
@@ -76,10 +80,6 @@ function setUpDatabse() {
     }
 }
 
-function getUserType() {
-    // return user type
-}
-
 function isVaildSession(req) {
     if (req.session.authenticated) {
         return true;
@@ -99,7 +99,7 @@ function sessionValidation(req, res, next) {
 }
 
 function isAdmin(req) {
-    if (req.session.user_type == 'admin') {
+    if (req.session.authorization == 'admin') {
         return true;
     }
     return false;
@@ -117,16 +117,21 @@ function adminAuthorization(req, res, next) {
 }
 
 app.use("/members", sessionValidation)
+app.use("/todo", sessionValidation)
 app.use("/admin", adminAuthorization)
 
 
 app.get('/', (req, res) => {
-    res.render("index")
-    setUpDatabse()
+    res.render("index");
+    setUpDatabse();
 });
 
-app.get('/admin', (req, res) => {
-    res.render("admin")
+app.get('/admin', async (req, res) => {
+
+    let result = await db_user.getAllUsers()
+    console.log(result)
+
+    res.render("admin", { name: req.session.username, userlist: result });
 });
 
 app.get('/signup', (req, res) => {
@@ -157,11 +162,13 @@ app.post("/create_user", async (req, res) => {
 
 
     if (success) {
-        if (authenticateUser(req, email, hashedPassword)) {
+        let result = authenticateUser(email, password)
+        if (result.bool) {
             req.session.authenticated = true;
             req.session.name = name;
-            req.session.user_type =
-                req.session.cookie.maxAge = expireTime;
+            req.session.authorization = result.user;
+            req.session.cookie.maxAge = expireTime;
+
             res.redirect("/members")
             return;
         }
@@ -176,7 +183,7 @@ app.get('/login', (req, res) => {
     res.render("login", { missing: missing });
 });
 
-app.post('/validate_user', (req, res) => {
+app.post('/validate_user', async (req, res) => {
     let user_email = req.body.user_email
     let user_password = req.body.user_password
 
@@ -187,49 +194,71 @@ app.post('/validate_user', (req, res) => {
         res.redirect('/login?missing=2')
     }
 
-    if (authenticateUser(req, user_email, user_password)) {
+    console.log("Going in authicateUser")
+    let result = await authenticateUser(user_email, user_password)
+
+    if (result.bool) {
+
         req.session.authenticated = true;
+        req.session.authorization = result.user.usertype;
+        req.session.user_id = result.user.user_id;
+        req.session.user_email = result.user.email;
+        req.session.username = result.user.name;
         req.session.cookie.maxAge = expireTime;
-        res.redirect("/members")
+
+        if (req.session.authorization == "admin") {
+            res.redirect("/admin")
+            return
+        }
+        res.redirect("/todo")
         return;
     }
     //user and password combination not found
     res.redirect("/login")
-})
+});
 
 
 app.get("/members", (req, res) => {
+    console.log(req.session.user_email)
     if (req.session.authenticated) {
         res.render("members");
     } else {
         res.redirect('/login');
     }
-})
+});
 
 app.post("/user_logout", (req, res) => {
     req.session.destroy();
     res.redirect("/")
-})
+});
 
 
 
+app.get("/todo", async (req, res) => {
+
+    let todo_result = await db_todo.getTodos({ id: req.session.user_id })
+    res.render("todo", { name: req.session.username, todolist: todo_result })
+});
 
 
+app.post("/update_todo", async (req, res) => {
 
+    let success = await db_todo.createTodo({ description: req.body.todo, user_id: req.session.user_id })
+    if (success) {
+        res.redirect('/todo')
+        return;
+    }
+    res.redirect('/errorMessage')
+});
 
+app.get("/user/:id", async (req, res) => {
+    let user_id = req.params.id;
+    let todo_result = await db_todo.getTodos({ id: user_id })
+    let user = await db_user.getUsers2({ id: user_id })
 
-
-
-
-
-
-
-
-
-
-
-
-
+    res.render("todo_users", { username: user[0].name, todolist: todo_result })
+    return;
+});
 
 app.use(express.static(__dirname + "/public"));
 

@@ -1,0 +1,12 @@
+<%- include("templates/header") %>
+<h2> Show todos for <%=username %> </h2>
+<% let i = 0 %>
+<table>
+    <% for(i; i < todolist.length; i++){ %>
+    <tr>
+        <td><%= i+1 %></td>
+        <td><%= todolist[i].description %></td>
+    </tr>
+    <% } %>
+</table>
+<%- include("templates/footer") %>

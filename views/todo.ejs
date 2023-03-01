@@ -1,0 +1,19 @@
+<%- include("templates/header") %>
+<h2> Welcome <%=  name%></h2>
+<% let i = 0 %>
+<table>
+    <% for(i; i < todolist.length; i++){ %>
+    <tr>
+        <td><%= i+1 %></td>
+        <td><%= todolist[i].description %></td>
+    </tr>
+    <% } %>
+</table>
+<form action="/update_todo" method="post">
+    <input name="todo" type="text" placeholder="What needs to be done?"><br />
+    <button>Submit</button>
+</form>
+<form action='/user_logout' method='post'>
+    <button>Log Out</button>
+</form>
+<%- include("templates/footer") %>

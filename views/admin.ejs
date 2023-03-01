@@ -1,3 +1,16 @@
-<%- include("templates/header") %> 
-    Admins Only Page
-<%- include("templates/footer") %> 
+<%- include("templates/header") %>
+<h2> Welcome <%=  name%></h2>
+<h3>Users List:</h3>
+<% let i = 0 %>
+<ol>
+    <% for(i=0; i < userlist.length; i++) { %>
+    <li>
+        <a href="/user/<%= userlist[i].user_id %>"><%= userlist[i].name %></a>
+    </li>
+    <% } %>
+</ol>
+
+<form action='/user_logout' method='post'>
+    <button>Log Out</button>
+</form>
+<%- include("templates/footer") %>
