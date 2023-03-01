@@ -162,14 +162,19 @@ app.post("/create_user", async (req, res) => {
 
 
     if (success) {
-        let result = authenticateUser(email, password)
+        console.log("hi there")
+        let result = await authenticateUser(email, password)
+        console.log(result.bool)
         if (result.bool) {
+
             req.session.authenticated = true;
-            req.session.name = name;
-            req.session.authorization = result.user;
+            req.session.authorization = result.user.usertype;
+            req.session.user_id = result.user.user_id;
+            req.session.user_email = result.user.email;
+            req.session.username = name;
             req.session.cookie.maxAge = expireTime;
 
-            res.redirect("/members")
+            res.redirect("/todo")
             return;
         }
     }
